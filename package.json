@@ -1,0 +1,19 @@
+{
+  "name": "gomi-useful-functional-programing",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://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@github.com/mystyle2006/gomi-useful-functional-programming.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/mystyle2006/gomi-useful-functional-programming/issues"
+  },
+  "homepage": "https://github.com/mystyle2006/gomi-useful-functional-programming#readme"
+}
