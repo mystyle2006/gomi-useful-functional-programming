@@ -7,6 +7,7 @@
   - reduce
   - groupBy
   - uniqBy
+  - go
 
 
 - 실제 사례를 통해 데이터 가공하기
