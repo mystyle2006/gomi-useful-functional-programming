@@ -1,43 +1,47 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import {IOrderItem} from "./interfaces/IOrderItem";
-import { groupBy, map, mapValues, reduce, sumBy, toPairs} from "lodash";
+import {curry, groupBy, map, mapValues, reduce, sumBy, toPairs} from "lodash";
 import {go} from "../methods/go";
 import {channel} from "diagnostics_channel";
 
 const fileData = fs.readFileSync(path.join(__dirname, './order-json.txt'), 'utf-8');
 const toJSON: { data: { orderItems: IOrderItem[] }} = JSON.parse(fileData);
 
-const recursiveGroupBy = (collection: any, target: string): any => {
-  return Array.isArray(collection) ? groupBy(collection, target) : mapValues(collection, (orderItems: any) => recursiveGroupBy(orderItems, target));
-}
+const recursiveGroupBy = curry((target: string, collection: any): any => {
+  return Array.isArray(collection) ? groupBy(collection, target) : mapValues(collection, (orderItems: any) => recursiveGroupBy(target, orderItems));
+});
+
+const logInfo = curry((label: string, data: any) => {
+  console.log(`>>> ${label}`, data);
+  return data;
+});
 
 const result = go(
   toJSON.data.orderItems,
-  (data: any) => recursiveGroupBy(data, 'gspc'),
-  (data: any) => recursiveGroupBy(data, 'price'),
-  (data: any) => recursiveGroupBy(data, 'channel'),
-  (data: any) => recursiveGroupBy(data, 'orderStatus'),
+  recursiveGroupBy( 'gspc'),
+  recursiveGroupBy( 'price'),
+  recursiveGroupBy( 'channel'),
+  recursiveGroupBy( 'orderStatus'),
   toPairs,
-  (pairs: any) => reduce(pairs, (acc: any[], [gspc, values]): any[] => {
+  (pairs: any) => reduce(pairs, (acc: any[], [gspc, groupByGspc]): any[] => {
     const rows = go(
-      values,
+      groupByGspc,
       toPairs,
-      (pairs: any) => map(pairs, ([price, value0]: any[], index: number) => {
+      (pairs: any) => map(pairs, ([price, groupByPrice]: any[], index: number) => {
         const _row = go(
-          value0,
+          groupByPrice,
           toPairs,
-          (pairs: any) => reduce(pairs, (acc: any, [channel, value1]) => {
+          (pairs: any) => reduce(pairs, (acc: any, [channel, groupByChannel]) => {
             return go(
-              value1,
+              groupByChannel,
               toPairs,
-              (pairs: any) => reduce(pairs, (acc2, [status, value2]) => {
-                const sumOfCount = sumBy(value2, (item: IOrderItem) => item.count);
-                const sumOfPrice = sumBy(value2, (item: IOrderItem) => (item.price || 0) * item.count);
-
+              (pairs: any) => reduce(pairs, (acc2, [status, groupByStatus]) => {
+                const sumOfCount = sumBy(groupByStatus, (item: IOrderItem) => item.count);
+                const sumOfPrice = sumBy(groupByStatus, (item: IOrderItem) => (item.price || 0) * item.count);
                 return {
                   ...acc2,
-                  productName: value2.gspcInfo?.name,
+                  productName: groupByStatus[0].gspcInfo?.name,
                   price: Number(price || 0),
                   [`${channel}-${status}-COUNT`]: sumOfCount,
                   [`${channel}-${status}-AMOUNT`]: sumOfPrice,
@@ -46,7 +50,7 @@ const result = go(
                 };
               }, {
                 gspc,
-                rowSpan: index === 0 ? Object.entries(values).length : 1,
+                rowSpan: index === 0 ? Object.entries(groupByGspc).length : 1,
                 totalCount: 0,
                 totalAmount: 0,
               }),
